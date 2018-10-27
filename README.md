@@ -9,6 +9,7 @@ DISCLAIMER:
   Thank you for reading...
 
 REQUIRED PACKAGES:
-  numpy, pandas
-  wave, struct
-  pyaudio, os
+  numpy, pandas, wave, struct, pyaudio, os
+  
+SPECIAL THANK YOU:
+  Special thanks to the creators of PyAudio, MIT professor of digital communications systems (fall 2010) and my friends and family for beliving in my ability to learn, apply myself and bring my ideas to life, for without all of them ohm would not exist.
