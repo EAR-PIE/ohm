@@ -7,39 +7,40 @@ Created on Sun Oct 28 20:04:37 2018
 import numpy as np
 import pandas as pd
 import datetime as dt
+import music21 as m21
 import pyaudio, wave
 #import board, busio
 #import adafuit_bno055 as bno
-from time import sleep
+#from time import sleep
 from decimal import Decimal
 from scipy import signal
 
 #initialize orientation sensor
 #i2c = busio.I2C(board.SCL, board.SDA); sensor = bno.BNO055(i2c);
 
-def get_sensor_dataframe():
-    ''' returns a DataFrame of timestamped sensor data for acceleration (x, y, z),
-        gravity (x, y, z) and gyroscopic orientation (x, y, z). '''
-    global sensor
-    while sensor:
-        df = pd.DataFrame({'Speed': list(sensor.accelerometer),
-                       'Gravity': list(sensor.gravity),
-                       'Balance': list(sensor.gyroscope)})
-        df.assign(timestamp=dt.datetime.now().time())
-        sleep(0.25)
-    return df
-def mag_to_value():
-    mag_tuple = sensor.magnetometer
-    mag = Decimal(0, mag_tuple, -2)
-    return mag
-def grav_to_hz():
-    grav_tuple = sensor.gravity
-    grav = Decimal(0, grav_tuple, mag_to_value())
-    return grav
-def accel_to_length():
-    accel_tuple = sensor.accelerometer
-    accel = Decimal(0, accel_tuple, grav_to_hz())
-    return accel
+#def get_sensor_dataframe():
+#    ''' returns a DataFrame of timestamped sensor data for acceleration (x, y, z),
+#        gravity (x, y, z) and gyroscopic orientation (x, y, z). '''
+#    global sensor
+#    while sensor:
+#        df = pd.DataFrame({'Speed': list(sensor.accelerometer),
+#                       'Gravity': list(sensor.gravity),
+#                       'Balance': list(sensor.gyroscope)})
+#        df.assign(timestamp=dt.datetime.now().time())
+#        sleep(0.25)
+#    return df
+#def mag_to_value():
+#    mag_tuple = sensor.magnetometer
+#    mag = Decimal(0, mag_tuple, -2)
+#    return mag
+#def grav_to_hz():
+#    grav_tuple = sensor.gravity
+#    grav = Decimal(0, grav_tuple, mag_to_value())
+#    return grav
+#def accel_to_length():
+#    accel_tuple = sensor.accelerometer
+#    accel = Decimal(0, accel_tuple, grav_to_hz())
+#    return accel
 
 #initialize audio objects
 p = None; s = None;
@@ -87,7 +88,35 @@ def read_wav(filename):
 def play_wav(filename):
     data = read_wav(filename)
     play(data)
+def save_then_play_wav(filename, data=None, rewrite=False, rewrite_length=0.0):
+    if rewrite == True:
+        while rewrite_length > 0.0:
+            save_wav(filename, data)
+            play_wav(filename)
+            rewrite_length -= 0.1
+        return
+    elif rewrite == False:
+        save_wav(filename, data)
+        play_wav(filename)
+        return
 
+class M21:
+    def __init__(self, M21_Note):
+        self.M21_Note = M21_Note
+        return
+    def Hz_df(M21_Note, timestamp=False):
+        freq = M21_Note.pitch.frequency
+        length = M21_Note.duration.quarterLength
+        if timestamp == True:
+            return pd.Series({'freq': freq, 'length': length, 
+                              'timestamp': dt.datetime.now().time()})
+        elif timestamp == False:
+            return pd.Series({'freq': freq, 'length': length})
+        return
+    def Hz_object(M21_Note):
+        freq = M21_Note.pitch.frequency
+        length = M21_Note.duration.quarterLength
+        return dict(freq: length)
 class Waveform:
     def __init__(self, freq, length, amp, framerate=48000, phase=0.0):
         self.freq = float(freq)
@@ -189,6 +218,8 @@ class Waveform:
             for i in range(section):
                 yield (amp - (i * (amp / section))) * direction
     def ring_mod(waveform_list, length):
+        #####TO DO:
+            ##### 1) needs work in general
         for part in waveform_list:
             waveforms = Waveform.triangle(part, length)
         return np.array(waveforms)
@@ -204,6 +235,7 @@ class Waveform:
     def silence(length, framerate=48000):
         data = Waveform.input_for_wave(0.0, length)
         return data
+    
 
 #https://pages.mtu.edu/~suits/NoteFreqCalcs.html
 def hz_stepper(fixed_note, steps):
