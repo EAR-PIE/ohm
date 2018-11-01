@@ -38,9 +38,21 @@ import pyaudio, wave
 #    accel_tuple = sensor.accelerometer
 #    accel = Decimal(0, accel_tuple, grav_to_hz())
 #    return accel
-#class Sensor:
-#   from decimal import *
-
+class Sensor(object):
+    def __init__(self):
+        self.accelerometer = self.accelerometer
+        self.gravity = self.gravity
+        self.gyroscope = self.gyroscope
+        self.magnetometer = self.magenetometer
+        self.euler = self.euler
+        self.quaternions = self.quaternions
+    def to_DataFrame(self):
+        x_accel, y_accel, z_accel = self.accelerometer
+        x_grav, y_grav, z_grav = self.gravity
+        x_gyro, y_gyro, z_gyro = self.gyroscope
+        df = pd.DataFrame().assign(accel_x=x_accel, accel_y=y_accel, 
+                         accel_z=z_accel,)
+        
 
 #initialize audio objects
 p = None; s = None;
@@ -97,33 +109,31 @@ class M21:
         def __init__(self, letter_note, length):
             self.letter_note = letter_note
             self.length = length
-        def to_tuple(letter_note, length):
+        def to_tuple(letter_note, octave, length):
             from music21 import note, duration
-            letter_note = note.Note(str(letter_note))
+            letter_note = note.Note(str(letter_note) + str(octave))
             letter_note.duration = duration.Duration(float(length))
             freq = letter_note.pitch.frequency
             duration = letter_note.duration.quarterLength
             return freq, duration
-        def get_freq(letter_note, octave):
-            from music21 import note
-            letter_note = note.Note(str(letter_note) + str(octave))
-            return float(letter_note.pitch.frequency)
-        def __len__(self, length):
-            return max(range(int(length)))
-        def to_Series(letter_note, length, timestamp=False):
-            freq = M21.Hz.to_float
-            length = M21.Hz.to_tuple(letter_note, length)
-            length = length[1]
-            series = pd.Series({'note': letter_note, 'freq': freq, 'length': length})
-            if timestamp == True:
-                series.assign(time=dt.datetime.now().time())
-            else:
-                series = series
-            return series
-        def to_dict(letter_note, length):
-            freq = M21.Hz.to_tuple(letter_note, length)[0]
-            length = M21.Hz.to_tuple(letter_note, length)[1]
+        def __len__(self):
+            return max(range(int(M21.Hz.duration.quarterLength)))
+        def to_dict(letter_note, octave, length):
+            freq = M21.Hz.to_tuple(letter_note, octave, length)[0]
+            length = M21.Hz.to_tuple(letter_note, octave, length)[1]
             return {freq: length}
+        def to_DataFrame(letter_note, octave, length):
+            from datetime import datetime as dt
+            df = pd.DataFrame(columns=['note', 'octave', 'freq', 'length', 'timestamp'])
+            notes = [note for note in letter_note]
+            df['note'] = notes
+            octaves = [num for num in str(octave)]
+            df['octave'] = octaves
+            freq = M21.Hz.to_tuple(letter_note, octave, length)[0]
+            df['freq'] = freq
+            df['length'] = length
+            df['timestamp'] = dt.now().time()
+            return df
     class Time_Signature:
         def __init__(self, time_sig):
             self.time_sig = time_sig
@@ -308,6 +318,7 @@ class Effect:
         length = float(len(data)) / rate
         modwave = (Waveform.input_for_wave(freq, length) / 2 + 0.5)
         return (data * dry) + ((data * modwave) * wet)
+#    def octaver()
         
 
 #https://pages.mtu.edu/~suits/NoteFreqCalcs.html
