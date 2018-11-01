@@ -10,52 +10,44 @@ import datetime as dt
 import pyaudio, wave
 #import board, busio
 #import adafuit_bno055 as bno
-from time import sleep
-from decimal import Decimal
-from scipy import signal
+#from time import sleep
 
 #initialize orientation sensor
 #i2c = busio.I2C(board.SCL, board.SDA); sensor = bno.BNO055(i2c);
 
-def get_sensor_dataframe():
-    ''' returns a DataFrame of timestamped sensor data for acceleration (x, y, z),
-        gravity (x, y, z) and gyroscopic orientation (x, y, z). '''
-    global sensor
-    while sensor:
-        df = pd.DataFrame({'Speed': list(sensor.accelerometer),
-                       'Gravity': list(sensor.gravity),
-                       'Balance': list(sensor.gyroscope)})
-        df.assign(timestamp=dt.datetime.now().time())
-        sleep(0.25)
-    return df
-def mag_to_value():
-    mag_tuple = sensor.magnetometer
-    mag = Decimal(0, mag_tuple, -2)
-    return mag
-def grav_to_hz():
-    grav_tuple = sensor.gravity
-    grav = Decimal(0, grav_tuple, mag_to_value())
-    return grav
-def accel_to_length():
-    accel_tuple = sensor.accelerometer
-    accel = Decimal(0, accel_tuple, grav_to_hz())
-    return accel
+#def get_sensor_dataframe():
+#    ''' returns a DataFrame of timestamped sensor data for acceleration (x, y, z),
+#        gravity (x, y, z) and gyroscopic orientation (x, y, z). '''
+#    global sensor
+#    while sensor:
+#        df = pd.DataFrame({'Speed': list(sensor.accelerometer),
+#                       'Gravity': list(sensor.gravity),
+#                       'Balance': list(sensor.gyroscope)})
+#        df.assign(timestamp=dt.datetime.now().time())
+#        sleep(0.25)
+#    return df
+#def mag_to_value():
+#    mag_tuple = sensor.magnetometer
+#    mag = Decimal(0, mag_tuple, -2)
+#    return mag
+#def grav_to_hz():
+#    grav_tuple = sensor.gravity
+#    grav = Decimal(0, grav_tuple, mag_to_value())
+#    return grav
+#def accel_to_length():
+#    accel_tuple = sensor.accelerometer
+#    accel = Decimal(0, accel_tuple, grav_to_hz())
+#    return accel
+#class Sensor:
+#   from decimal import *
+
 
 #initialize audio objects
 p = None; s = None;
-def init_audio(framerate=48000, mono=False, format_type='int16'):
-    ''' initializes PyAudio objects '''
+def init_audio(framerate=48000):
     global p, s
     p = pyaudio.PyAudio()
-    if format_type == 'int8': format_type = pyaudio.paInt8
-    if format_type == 'int16': format_type = pyaudio.paInt16
-    if format_type == 'int24': format_type = pyaudio.paInt24
-    if format_type == 'int32': format_type = pyaudio.paInt32
-    if format_type == 'float32': format_type = pyaudio.paFloat32
-    if mono == False:
-        s = p.open(format=format_type, channels=2, rate=framerate, output=1)
-    elif mono == True:
-        s = p.open(format=format_type, channels=1, rate=framerate, output=1)
+    s = p.open(format=pyaudio.paInt16, channels=1, rate=framerate, output=True)
     return
 def close_audio():
     ''' closes PyAudio objects '''
@@ -68,7 +60,6 @@ def play(sound):
     global s
     s.write(sound)
     return
-
 def save_wav(filename, data=None):
     file = wave.open(filename, 'wb')
     nchannels = 2;      sampwidth = 2
@@ -87,6 +78,78 @@ def read_wav(filename):
 def play_wav(filename):
     data = read_wav(filename)
     play(data)
+def save_then_play_wav(filename, data=None, rewrite=False, rewrite_length=0.0):
+    if rewrite == True:
+        while rewrite_length > 0.0:
+            save_wav(filename, data)
+            play_wav(filename)
+            rewrite_length -= 0.1
+        return
+    elif rewrite == False:
+        save_wav(filename, data)
+        play_wav(filename)
+        return
+
+class M21:
+    def __init__(self, M21_Note):
+        self.M21_Note = M21_Note
+    class Hz:
+        def __init__(self, letter_note, length):
+            self.letter_note = letter_note
+            self.length = length
+        def to_tuple(letter_note, length):
+            from music21 import note, duration
+            letter_note = note.Note(str(letter_note))
+            letter_note.duration = duration.Duration(float(length))
+            freq = letter_note.pitch.frequency
+            duration = letter_note.duration.quarterLength
+            return freq, duration
+        def get_freq(letter_note, octave):
+            from music21 import note
+            letter_note = note.Note(str(letter_note) + str(octave))
+            return float(letter_note.pitch.frequency)
+        def __len__(self, length):
+            return max(range(int(length)))
+        def to_Series(letter_note, length, timestamp=False):
+            freq = M21.Hz.to_float
+            length = M21.Hz.to_tuple(letter_note, length)
+            length = length[1]
+            series = pd.Series({'note': letter_note, 'freq': freq, 'length': length})
+            if timestamp == True:
+                series.assign(time=dt.datetime.now().time())
+            else:
+                series = series
+            return series
+        def to_dict(letter_note, length):
+            freq = M21.Hz.to_tuple(letter_note, length)[0]
+            length = M21.Hz.to_tuple(letter_note, length)[1]
+            return {freq: length}
+    class Time_Signature:
+        def __init__(self, time_sig):
+            self.time_sig = time_sig
+        def to_tuple(time_sig):
+            numerator = time_sig.numerator
+            denominator = time_sig.denominator
+            return tuple([numerator, denominator])
+        def to_str(time_sig):
+            return time_sig.ratioString
+        def beat_length(time_sig):
+            return time_sig.beatDuration.quarterLength
+    class Theory:
+        def __init__(self):
+            pass
+        def alphabet():
+            notes = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+            return notes
+        def accidentals():
+            accidentals = ['-', '#']
+            return accidentals
+        def octaves():
+            octaves = [octave for octave in range(17)]
+            return octaves
+        def note_types():
+            note_types = ['quarter', 'half', 'whole']
+            return note_types
 
 class Waveform:
     def __init__(self, freq, length, amp, framerate=48000, phase=0.0):
@@ -117,22 +180,9 @@ class Waveform:
                 break
             else:
                 continue
-    def pulse(freq, framerate=48000, duty=0.5):
-        sample_n = 0
-        cycle_length = framerate / freq
-        pulse_length = cycle_length * duty
-        while True:
-            if (sample_n % cycle_length) < pulse_length:
-                yield 1.0
-            else:
-                yield -1.0
-            sample_n += 1
-            if sample_n == framerate:
-                break
-            else:
-                continue
     def irregular_sawtooth(min_range, max_range):
         import random
+        from scipy import signal
         waveform = np.concatenate(
                 [signal.sawtooth(2 * np.pi * np.linspace(
                         0, 1, random.randrange(
@@ -164,6 +214,7 @@ class Waveform:
         data = Waveform.input_for_wave(freq, length)
         return Waveform._sawtooth(data)
     def sawtooth1(freq, length, framerate=48000, amp=1.0):
+        from scipy import signal
         t = np.linspace(0, length, length * framerate)
         data = signal.sawtooth(2 * np.pi * freq * t) * amp
         return data
@@ -188,10 +239,6 @@ class Waveform:
                 yield i * (amp / section) * direction
             for i in range(section):
                 yield (amp - (i * (amp / section))) * direction
-    def ring_mod(waveform_list, length):
-        for part in waveform_list:
-            waveforms = Waveform.triangle(part, length)
-        return np.array(waveforms)
     def white_noise(framerate=48000):
         import random
         count = 0
@@ -202,8 +249,66 @@ class Waveform:
                 yield (random.random() * 2) - 1.0
             count += 1
     def silence(length, framerate=48000):
-        data = Waveform.input_for_wave(0.0, length)
-        return data
+        return np.zeros(int(length * framerate))
+    def ring_buffer(data, length, framerate=48000, decay=1.0):
+        phase = len(data)
+        length = int(framerate * length)
+        out = np.resize(data, length)
+        for i in range(phase, length):
+            index = i - phase
+            out[i] = (out[index] + out[index + 1]) * 0.5 * decay
+        return out
+    def pluck(freq, length, framerate=48000, decay=0.998):
+        freq = float(freq)
+        phase = int(framerate / freq)
+        data = np.random.random(phase) * 2 - 1
+        return Waveform.ring_buffer(data, length, framerate, decay)
+class Effect:
+    def __init__(self, data, freq, dry=0.5, wet=0.5, framerate=48000):
+        self.data = data
+        self.freq = float(freq)
+        self.dry = float(dry)
+        self.wet = float(wet)
+        self.framerate = int(framerate)
+    def ring_mod(waveform_list, length):
+        #####TO DO:
+            ##### 1) needs work in general
+        for part in waveform_list:
+            waveforms = Waveform.triangle(part, length)
+        return np.array(waveforms)
+    def modulated_delay(data, modwave, dry, wet):
+        out = data.copy()
+        for i in range(len(data)):
+            index = int(i - modwave[i])
+            if index >= 0 and index < len(data):
+                out[i] = data[i] * dry + data[index] * wet
+        return out
+    def feedback_modulated_delay(data, modwave, dry, wet):
+        out = data.copy()
+        for i in range(len(data)):
+            index = int(i - modwave[i])
+            if index >= 0 and index < len(data):
+                out[i] = out[i] * dry + out[index] * wet
+        return out
+    def chorus(data, freq, dry=0.5, wet=0.5, depth=1.0, delay=25.0, rate=48000):
+        length = float(len(data)) / rate
+        mil = float(rate) / 1000
+        depth *= mil
+        delay *= mil
+        modwave = (Waveform.sine(freq, length) / 2 + 0.5) * depth + delay
+        return Effect.modulated_delay(data, modwave, dry, wet)
+    def flanger(data, freq, dry=0.5, wet=0.5, depth=20.0, delay=1.0, rate=48000):
+        length = float(len(data)) / rate
+        mil = float(rate) / 1000
+        depth *= mil
+        delay *= mil
+        modwave = (Waveform.sine(freq, length) / 2 + 0.5) * depth + delay
+        return Effect.feedback_modulated_delay(data, modwave, dry, wet)
+    def tremolo(data, freq, dry=0.5, wet=0.5, rate=48000):
+        length = float(len(data)) / rate
+        modwave = (Waveform.input_for_wave(freq, length) / 2 + 0.5)
+        return (data * dry) + ((data * modwave) * wet)
+        
 
 #https://pages.mtu.edu/~suits/NoteFreqCalcs.html
 def hz_stepper(fixed_note, steps):
@@ -338,13 +443,4 @@ class Scale:
                         next_note = hz_stepper(next_note, -2)
                         scale.append(next_note)
         return scale
-
-class Rhythm:
-    def __init__(self, bpm, time_sig, length):
-        self.bpm = int(bpm)
-        self.time_sig = tuple(time_sig)
-        self.length = float(length)
-    def rest(bpm, length):
-        pass
-    def silence():
-        pass
+        
